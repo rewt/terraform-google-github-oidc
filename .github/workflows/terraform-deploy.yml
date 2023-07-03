@@ -1,11 +1,16 @@
 name: Terraform Deployment
-on: 
+on:
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
       - 'tests/basic/**'
   issue_comment:
     types: [created]
+    paths:
+      - 'tests/basic/**'
+  push:
+    branches:
+      - '*'
     paths:
       - 'tests/basic/**'
 
@@ -86,6 +91,6 @@ jobs:
             })
 
       - name: Terraform apply
-        if: github.event.pull_request.merged == true
+        if: github.event_name == 'push' || (github.event.pull_request.merged == true && contains(github.event.comment.body, 'run apply'))
         continue-on-error: true
         run: terraform apply -input=false -auto-approve -no-color ../plan.out
