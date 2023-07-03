@@ -8,6 +8,7 @@ on:
 env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
   PROJECT_NO: ${{ secrets.PROJECT_NO }}
+  POOL_ID: ${{ secrets.POOL_ID }}
 
 jobs:
   terraform:
