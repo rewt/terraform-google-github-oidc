@@ -2,17 +2,8 @@ name: Terraform Deployment
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    paths:
-      - 'tests/basic/**'
   issue_comment:
     types: [created]
-    paths:
-      - 'tests/basic/**'
-  push:
-    branches:
-      - '*'
-    paths:
-      - 'tests/basic/**'
 
 env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
@@ -24,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write'
+      pull-requests: 'write'
 
     steps:
       - name: Checkout repository
@@ -49,48 +40,36 @@ jobs:
         run: terraform validate -no-color
 
       - name: Terraform plan
+        id: plan
+        run: terraform plan -input=false -out=tfplan -no-color
         continue-on-error: true
-        run: terraform plan -input=false -out ../plan.out -no-color
 
-      - name: Post comment to Pull Request
-        if: github.event_name == 'pull_request'
+      - name: Check for "run apply" comment
+        id: check-comment
         uses: actions/github-script@v6
-        env:
-          PLAN: terraform\n${{ steps.tf-plan.outputs.stdout }}
         with:
           script: |
-            const output = `#### Terraform Initialization ⚙️\`${{ steps.tf-init.outcome }}\`
-            #### Terraform Validation 🤖\`${{ steps.tf-validate.outcome }}\`
-            <details><summary>Validation Output</summary>
-
-            \`\`\`\n
-            ${{ steps.tf-validate.outputs.stdout }}
-            \`\`\`
-
-            </details>
-
-            #### Terraform Plan 📖\`${{ steps.tf-plan.outcome }}\`
-
-            <details><summary>Show Plan</summary>
-
-            \`\`\`\n
-            ${process.env.PLAN}
-            \`\`\`
-
-            </details>
-
-            #### Terraform Apply 📖\`${{ steps.tf-apply.outcome }}\`
-
-            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.tf_actions_working_dir }}\`, Workflow: \`${{ github.workflow }}\`*`;
-
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: output
-            })
-
-      - name: Terraform apply
-        if: github.event_name == 'push' || (github.event.pull_request.merged == true && contains(github.event.comment.body, 'run apply'))
-        continue-on-error: true
-        run: terraform apply -input=false -auto-approve -no-color ../plan.out
+            const comment = github.context.payload.comment;
+            const isPrComment = comment && comment.pull_request;
+            const isCommented = comment && comment.body.includes('run apply');
+            const isMerged = github.context.payload.pull_request.merged === true;
+            console.log(`Is PR Comment: ${isPrComment}, Is Commented: ${isCommented}, Is Merged: ${isMerged}`);
+            console.log(`Comment: ${comment.body}`);
+            console.log(`Pull Request Number: ${github.context.payload.pull_request.number}`);
+            console.log(`Pull Request Title: ${github.context.payload.pull_request.title}`);
+            console.log(`Pull Request Base Branch: ${github.context.payload.pull_request.base.ref}`);
+            console.log(`Pull Request Head Branch: ${github.context.payload.pull_request.head.ref}`);
+            console.log(`Pull Request Merged: ${github.context.payload.pull_request.merged}`);
+            console.log(`Pull Request Merge Commit SHA: ${github.context.payload.pull_request.merge_commit_sha}`);
+            console.log(`Pull Request Author: ${github.context.payload.pull_request.user.login}`);
+            console.log(`Comment Author: ${comment.user.login}`);
+            console.log(`Comment Body: ${comment.body}`);
+            console.log(`Comment Created At: ${comment.created_at}`);
+            console.log(`Comment Updated At: ${comment.updated_at}`);
+            console.log(`Comment HTML URL: ${comment.html_url}`);
+            console.log(`Repository: ${github.context.payload.repository.full_name}`);
+            console.log(`Repository Owner: ${github.context.payload.repository.owner.login}`);
+            console.log(`Repository Name: ${github.context.payload.repository.name}`);
+            console.log(`Repository URL: ${github.context.payload.repository.html_url}`);
+            console.log(`Repository SSH URL: ${github.context.payload.repository.ssh_url}`);
+            console.log(`Repository Clone URL: ${
