@@ -1,0 +1,62 @@
+name: Terraform Deployment
+on: 
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review_comment:
+    types: [created]
+
+env:
+  PROJECT_ID: ${{ secrets.PROJECT_ID }}
+  PROJECT_NO: ${{ secrets.PROJECT_NO }}
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - id: 'auth'
+        name: 'Authenticate to Google Cloud'
+        uses: 'google-github-actions/auth@v1'
+        with:
+          create_credentials_file: 'true'
+          workload_identity_provider: 'projects/${{env.PROJECT_NO}}/locations/global/workloadIdentityPools/${{env.POOL_ID}}/providers/gh-provider'
+          service_account: 'github-access@${{env.PROJECT_ID}}.iam.gserviceaccount.com'
+
+      - name: 'Set up Cloud SDK'
+        uses: 'google-github-actions/setup-gcloud@v1'
+        with:
+          version: '>= 363.0.0'
+          
+      - name: Initialize Terraform and fmt
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Validate Terraform configuration
+        run: terraform validate
+
+      - name: Plan Terraform deployment
+        run: terraform plan -out=tfplan
+
+      - name: Comment instructions
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v5
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'To apply the Terraform changes, comment "run apply" on this pull request.'
+            })
+
+      - name: Apply Terraform changes
+        if: github.event_name == 'pull_request_review_comment' && github.event.comment.body == 'run apply'
+        run: terraform apply tfplan -auto-approve
+
+      - name: Clean up Terraform artifacts
+        run: rm -f tfplan
