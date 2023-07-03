@@ -2,8 +2,12 @@ name: Terraform Deployment
 on: 
   pull_request:
     types: [opened, synchronize, reopened]
-  pull_request_review_comment:
+    paths:
+      - 'tests/basic/**'
+  issue_comment:
     types: [created]
+    paths:
+      - 'tests/basic/**'
 
 env:
   PROJECT_ID: ${{ secrets.PROJECT_ID }}
@@ -20,44 +24,68 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
-      
-      - id: 'auth'
-        name: 'Authenticate to Google Cloud'
-        uses: 'google-github-actions/auth@v1'
-        with:
-          create_credentials_file: 'true'
-          workload_identity_provider: 'projects/${{env.PROJECT_NO}}/locations/global/workloadIdentityPools/${{env.POOL_ID}}/providers/gh-provider'
-          service_account: 'github-access@${{env.PROJECT_ID}}.iam.gserviceaccount.com'
 
-      - name: 'Set up Cloud SDK'
-        uses: 'google-github-actions/setup-gcloud@v1'
-        with:
-          version: '>= 363.0.0'
-          
-      - name: Initialize Terraform and fmt
+      - name: Set up Terraform CLI
         uses: hashicorp/setup-terraform@v1
 
-      - name: Validate Terraform configuration
-        run: terraform validate
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v0
+        with:
+          workload_identity_provider: ${{ env.PROJECT_NO }}/locations/global/workloadIdentityPools/${{ env.POOL_ID }}/providers/gh-provider
+          service_account: gcp-github-access@${{ env.PROJECT_ID }}.iam.gserviceaccount.com
 
-      - name: Plan Terraform deployment
-        run: terraform plan -out=tfplan
+      - name: Set up Google Cloud SDK
+        uses: google-github-actions/setup-gcloud@v0
 
-      - name: Comment instructions
+      - name: Terraform init
+        run: terraform init -no-color
+
+      - name: Terraform validate
+        run: terraform validate -no-color
+
+      - name: Terraform plan
+        continue-on-error: true
+        run: terraform plan -input=false -out ../plan.out -no-color
+
+      - name: Post comment to Pull Request
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v5
+        uses: actions/github-script@v6
+        env:
+          PLAN: terraform\n${{ steps.tf-plan.outputs.stdout }}
         with:
           script: |
+            const output = `#### Terraform Initialization ⚙️\`${{ steps.tf-init.outcome }}\`
+            #### Terraform Validation 🤖\`${{ steps.tf-validate.outcome }}\`
+            <details><summary>Validation Output</summary>
+
+            \`\`\`\n
+            ${{ steps.tf-validate.outputs.stdout }}
+            \`\`\`
+
+            </details>
+
+            #### Terraform Plan 📖\`${{ steps.tf-plan.outcome }}\`
+
+            <details><summary>Show Plan</summary>
+
+            \`\`\`\n
+            ${process.env.PLAN}
+            \`\`\`
+
+            </details>
+
+            #### Terraform Apply 📖\`${{ steps.tf-apply.outcome }}\`
+
+            *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`, Working Directory: \`${{ env.tf_actions_working_dir }}\`, Workflow: \`${{ github.workflow }}\`*`;
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'To apply the Terraform changes, comment "run apply" on this pull request.'
+              body: output
             })
 
-      - name: Apply Terraform changes
-        if: github.event_name == 'pull_request_review_comment' && github.event.comment.body == 'run apply'
-        run: terraform apply tfplan -auto-approve
-
-      - name: Clean up Terraform artifacts
-        run: rm -f tfplan
+      - name: Terraform apply
+        if: github.event.pull_request.merged == true
+        continue-on-error: true
+        run: terraform apply -input=false -auto-approve -no-color ../plan.out
