@@ -8,7 +8,7 @@ Here is a basic example of using this module:
 
 ```hcl
 module "gh-oidc" {
-  source = "../.."
+  source = "github.com/rewt/terraform-google-github-oidc?ref=v0.0.1"
 
   project_id = var.project_id
   account_id = var.account_id
