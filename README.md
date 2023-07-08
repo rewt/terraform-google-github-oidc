@@ -21,6 +21,7 @@ module "gh-oidc" {
   github_repo = "my-repo"
 
 }
+```
 
 ### Inputs
 
