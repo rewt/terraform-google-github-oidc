@@ -84,6 +84,12 @@ output "github_access_iam_binding" {
   value = module.gh-oidc.github_access_iam_binding
 }
 
-output "wif" {
-  value = module.gh-oidc.wif
+output "wif_pool_name" {
+  description = "The Workload Identity Federation details."
+  value = module.gh-oidc.wif_pool_name
+}
+
+output "wif_provider_name" {
+  description = "The Workload Identity Federation details."
+  value = module.gh-oidc.wif_provider_name
 }

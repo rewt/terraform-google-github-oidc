@@ -8,7 +8,12 @@ output "github_access_iam_binding" {
   value = google_project_iam_member.github-access
 }
 
-output "wif" {
+output "wif_pool_name" {
   description = "The Workload Identity Federation details."
-  value = module.gh-oidc
+  value = module.gh-oidc.pool_name
+}
+
+output "wif_provider_name" {
+  description = "The Workload Identity Federation details."
+  value = module.gh-oidc.provider_name
 }
