@@ -75,3 +75,15 @@ module "gh-oidc" {
   github_repo = "chatgpt-retrieval-plugin"
 
 }
+
+output "github_service_account" {
+  value = module.gh-oidc.github_service_account
+}
+
+output "github_access_iam_binding" {
+  value = module.gh-oidc.github_access_iam_binding
+}
+
+output "wif" {
+  value = module.gh-oidc.wif
+}

@@ -32,7 +32,7 @@ resource "google_project_iam_member" "github-access" {
 }
 
 # create workload id pool and provider and limit to specified github repo
-module "gh_oidc" {
+module "gh-oidc" {
   source            = "terraform-google-modules/github-actions-runners/google//modules/gh-oidc"
   version           = "v3.1.1"
 
